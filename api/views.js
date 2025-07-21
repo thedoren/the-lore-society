@@ -4,7 +4,7 @@ const notion = new Client({
     auth: process.env.NOTION_TOKEN,
 });
 
-const DATABASE_ID = process.env.NOTION_DATABASE_ID;
+// DATABASE_ID not needed when querying by page ID directly
 
 export default async function handler(req, res) {
     // Enable CORS for all origins
@@ -18,55 +18,25 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    const { action, postTitle } = req.query;
+    const { action, postId } = req.query;
 
     try {
         if (action === 'get') {
-            // Get current view count
-            const response = await notion.databases.query({
-                database_id: DATABASE_ID,
-                filter: {
-                    property: 'title',
-                    title: {
-                        equals: postTitle
-                    }
-                }
-            });
-
-            if (response.results.length === 0) {
-                return res.status(404).json({ error: 'Post not found' });
-            }
-
-            const page = response.results[0];
-            // Try different possible property names for views
-            const viewsProperty = page.properties.views || page.properties.Views || page.properties.view_count;
-            const views = viewsProperty?.number || 0;
+            // Get page directly by ID
+            const page = await notion.pages.retrieve({ page_id: postId });
+            const views = page.properties.views?.number || 0;
             
             return res.status(200).json({ views });
 
         } else if (action === 'increment') {
-            // Find the page first
-            const queryResponse = await notion.databases.query({
-                database_id: DATABASE_ID,
-                filter: {
-                    property: 'title',
-                    title: {
-                        equals: postTitle
-                    }
-                }
-            });
-
-            if (queryResponse.results.length === 0) {
-                return res.status(404).json({ error: 'Post not found' });
-            }
-
-            const page = queryResponse.results[0];
+            // Get current page
+            const page = await notion.pages.retrieve({ page_id: postId });
             const currentViews = page.properties.views?.number || 0;
             const newViews = currentViews + 1;
 
             // Update the page
             await notion.pages.update({
-                page_id: page.id,
+                page_id: postId,
                 properties: {
                     views: {
                         number: newViews

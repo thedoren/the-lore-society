@@ -102,10 +102,7 @@ class Blog {
         }
 
         try {
-            const post = this.posts.find(p => p.id === postId);
-            const postTitle = post ? post.title : '';
-
-            const response = await fetch(`${VERCEL_API_URL}/api/views?action=increment&postTitle=${encodeURIComponent(postTitle)}`);
+            const response = await fetch(`${VERCEL_API_URL}/api/views?action=increment&postId=${encodeURIComponent(postId)}`);
             const data = await response.json();
 
             if (response.ok) {
