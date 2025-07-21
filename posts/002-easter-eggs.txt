@@ -1,0 +1,15 @@
+Veteran Lore players know that the game has always been filled with hidden secrets, but the earliest versions contained some of the most obscure easter eggs in gaming history.
+
+The Developer's Riddle
+In the original release, there was a seemingly empty room in the abandoned library. Players who typed exactly "read between the lines" would discover a hidden message from the developers about their vision for the game's future.
+
+The Fibonacci Quest
+One of the most mathematically elegant secrets involved a series of NPCs whose dialogue lengths followed the Fibonacci sequence. Players who recognized the pattern and spoke to them in the correct order unlocked a rare artifact.
+
+Hidden Stats
+Long before modern games displayed everything in detailed UI panels, Lore had a secret command "/reveal" that would show hidden character statistics. Most players never discovered this, relying instead on community experimentation to understand game mechanics.
+
+The Time Traveler
+Perhaps the most meta easter egg was an NPC who would reference events that hadn't happened yet in the game's timeline. This character's dialogue changed based on the server's actual timestamp, creating a living, breathing mystery that evolved over time.
+
+These secrets weren't just fun diversions - they became the foundation for Lore's legendary community-driven puzzle-solving culture.

@@ -1,0 +1,50 @@
+name: Update Blog Stats
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.title, '[STATS]')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Parse stats from issue
+      id: parse
+      run: |
+        # Extract JSON from issue body
+        echo "${{ github.event.issue.body }}" > temp_stats.json
+        
+        # Validate JSON
+        if ! jq empty temp_stats.json 2>/dev/null; then
+          echo "Invalid JSON in issue body"
+          exit 1
+        fi
+        
+        # Merge with existing stats
+        jq -s '.[0] * .[1]' stats.json temp_stats.json > new_stats.json
+        mv new_stats.json stats.json
+        
+    - name: Commit updated stats
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add stats.json
+        git commit -m "Update blog view statistics" || exit 0
+        git push
+        
+    - name: Close stats issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            state: 'closed'
+          });
