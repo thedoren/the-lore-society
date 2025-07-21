@@ -38,7 +38,9 @@ export default async function handler(req, res) {
             }
 
             const page = response.results[0];
-            const views = page.properties.views?.number || 0;
+            // Try different possible property names for views
+            const viewsProperty = page.properties.views || page.properties.Views || page.properties.view_count;
+            const views = viewsProperty?.number || 0;
             
             return res.status(200).json({ views });
 
