@@ -44,23 +44,60 @@ class Blog {
     }
 
     async init() {
-        await this.loadGlobalStats();
+        // Show posts immediately with default views
+        this.globalStats = {};
+        POSTS_DATA.forEach(post => this.globalStats[post.id] = 0);
         this.loadPosts();
         this.renderPosts();
+        
+        // Load real view counts in background
+        this.loadGlobalStatsAsync();
     }
 
-    async loadGlobalStats() {
-        this.globalStats = {};
-        // Load each post's view count from CountAPI
-        for (const post of POSTS_DATA) {
+    async loadGlobalStatsAsync() {
+        // Check if we're running locally (file:// protocol)
+        if (window.location.protocol === 'file:') {
+            console.log('Running locally, skipping CountAPI');
+            return;
+        }
+        
+        // Load all view counts in parallel with timeout
+        const promises = POSTS_DATA.map(async (post) => {
             try {
-                const response = await fetch(`https://api.countapi.xyz/get/lore-blog/${post.id}`);
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch(`https://api.countapi.xyz/get/lore-blog/${post.id}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+                
                 const data = await response.json();
-                this.globalStats[post.id] = data.value || 0;
+                return { id: post.id, count: data.value || 0 };
             } catch (error) {
-                console.log(`Could not load stats for post ${post.id}`);
-                this.globalStats[post.id] = 0;
+                console.log(`Could not load stats for post ${post.id}:`, error.message);
+                return { id: post.id, count: 0 };
             }
+        });
+        
+        try {
+            const results = await Promise.all(promises);
+            
+            // Update view counts and re-render
+            results.forEach(result => {
+                this.globalStats[result.id] = result.count;
+                const post = this.posts.find(p => p.id === result.id);
+                if (post) {
+                    post.views = result.count;
+                    const viewsSpan = document.querySelector(`article [onclick*="${result.id}"]`)
+                        ?.parentElement.querySelector('.text-xs span:last-child');
+                    if (viewsSpan) {
+                        viewsSpan.textContent = `${result.count} views`;
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load view counts:', error);
         }
     }
 
@@ -78,14 +115,29 @@ class Blog {
     }
 
     async incrementViews(postId) {
+        // If running locally, just increment locally
+        if (window.location.protocol === 'file:') {
+            this.globalStats[postId] = (this.globalStats[postId] || 0) + 1;
+            return this.globalStats[postId];
+        }
+        
         try {
-            const response = await fetch(`https://api.countapi.xyz/hit/lore-blog/${postId}`);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            
+            const response = await fetch(`https://api.countapi.xyz/hit/lore-blog/${postId}`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            
             const data = await response.json();
             this.globalStats[postId] = data.value;
             return data.value;
         } catch (error) {
             console.error('Failed to increment view count:', error);
-            return this.getGlobalViews(postId);
+            // Fallback: increment locally if API fails
+            this.globalStats[postId] = (this.globalStats[postId] || 0) + 1;
+            return this.globalStats[postId];
         }
     }
 
