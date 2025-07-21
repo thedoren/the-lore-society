@@ -12,7 +12,6 @@ class Blog {
 
     async init() {
         await this.loadNotionPosts();
-        // await this.loadGlobalStatsAsync();
         this.renderPosts();
     }
 
@@ -20,7 +19,6 @@ class Blog {
         try {
             const response = await fetch(NOTION_API_URL);
             const data = await response.json();
-            console.log(data)
             this.posts = data
                 //.filter(post => post.Published) // Make sure your Notion database has this checkbox
                 .map(post => ({
@@ -33,45 +31,6 @@ class Blog {
                 .sort((a, b) => new Date(b.date) - new Date(a.date));
         } catch (error) {
             console.error('Failed to load Notion posts:', error);
-        }
-    }
-
-    async loadGlobalStatsAsync() {
-        const promises = this.posts.map(async (post) => {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-
-                const response = await fetch(`https://api.countapi.xyz/get/lore-blog/${post.id}`, {
-                    signal: controller.signal
-                });
-                clearTimeout(timeout);
-
-                const data = await response.json();
-                return { id: post.id, count: data.value || 0 };
-            } catch (error) {
-                console.log(`Could not load stats for post ${post.id}:`, error.message);
-                return { id: post.id, count: 0 };
-            }
-        });
-
-        try {
-            const results = await Promise.all(promises);
-
-            results.forEach(result => {
-                this.globalStats[result.id] = result.count;
-                const post = this.posts.find(p => p.id === result.id);
-                if (post) {
-                    post.views = result.count;
-                    const viewsSpan = document.querySelector(`article [onclick*="${result.id}"]`)
-                        ?.parentElement.querySelector('.text-xs span:last-child');
-                    if (viewsSpan) {
-                        viewsSpan.textContent = `${result.count} views`;
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Failed to load view counts:', error);
         }
     }
 
@@ -141,10 +100,10 @@ class Blog {
         try {
             const post = this.posts.find(p => p.id === postId);
             const postTitle = post ? post.title : '';
-            
+
             const response = await fetch(`${VERCEL_API_URL}/api/views?action=increment&postTitle=${encodeURIComponent(postTitle)}`);
             const data = await response.json();
-            
+
             if (response.ok) {
                 return data.views;
             } else {
