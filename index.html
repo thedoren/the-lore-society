@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lore Game Blog</title>
+    <title>The Lore Game Society Blog</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,18 +18,26 @@
         }
     </script>
 </head>
+
 <body class="bg-white text-black font-mono text-sm leading-relaxed">
     <div class="max-w-2xl mx-auto px-4 py-8">
         <header class="mb-12">
-            <h1 class="text-lg font-normal mb-2">Lore Game Blog</h1>
+            <h1 class="text-lg font-normal mb-2">The Lore Game Society </h1>
             <p class="text-sm text-gray-600">History, trivia and revelations</p>
         </header>
-        
+
         <main id="posts-container">
             <!-- Posts will be loaded here -->
         </main>
     </div>
 
+    <script>
+        window.BLOG_CONFIG = {
+            NOTION_DATABASE_ID: '237fd6718d4080259478f954ae185516',
+            VERCEL_API_URL: 'https://the-lore-society.vercel.app/'
+        };
+    </script>
     <script src="js/blog.js"></script>
 </body>
+
 </html>

@@ -1,77 +1,52 @@
-const POSTS_DATA = [
-    {
-        "id": "001",
-        "title": "The Origins of Lore: Where It All Began",
-        "date": "2025-01-15",
-        "content": `The story of Lore begins in the early days of browser-based gaming, when simplicity was king and imagination filled the gaps that graphics couldn't. 
-
-Unlike many modern games that overwhelm players with complex mechanics and flashy visuals, Lore chose a different path. It embraced minimalism not as a limitation, but as a feature.
-
-The original concept was born from a simple question: "What if a game's depth came from its community and stories, rather than its graphics?" This philosophy shaped every aspect of Lore's development.
-
-Early beta versions were nothing more than text-based interfaces with basic character progression. Yet players were immediately drawn to the world-building potential and the sense of discovery that came with each new area.
-
-The developers made a crucial decision early on: let the players shape the narrative. This decision would prove to be both Lore's greatest strength and its most challenging aspect to balance.`
-    },
-    {
-        "id": "002",
-        "title": "Hidden Easter Eggs in Early Lore Versions",
-        "date": "2025-01-10",
-        "content": `Veteran Lore players know that the game has always been filled with hidden secrets, but the earliest versions contained some of the most obscure easter eggs in gaming history.
-
-The Developer's Riddle
-In the original release, there was a seemingly empty room in the abandoned library. Players who typed exactly "read between the lines" would discover a hidden message from the developers about their vision for the game's future.
-
-The Fibonacci Quest
-One of the most mathematically elegant secrets involved a series of NPCs whose dialogue lengths followed the Fibonacci sequence. Players who recognized the pattern and spoke to them in the correct order unlocked a rare artifact.
-
-Hidden Stats
-Long before modern games displayed everything in detailed UI panels, Lore had a secret command "/reveal" that would show hidden character statistics. Most players never discovered this, relying instead on community experimentation to understand game mechanics.
-
-The Time Traveler
-Perhaps the most meta easter egg was an NPC who would reference events that hadn't happened yet in the game's timeline. This character's dialogue changed based on the server's actual timestamp, creating a living, breathing mystery that evolved over time.
-
-These secrets weren't just fun diversions - they became the foundation for Lore's legendary community-driven puzzle-solving culture.`
-    }
-];
+const NOTION_DATABASE_ID = window.BLOG_CONFIG.NOTION_DATABASE_ID;
+const NOTION_API_URL = `https://notion-api.splitbee.io/v1/table/${NOTION_DATABASE_ID}`;
+const VERCEL_API_URL = window.BLOG_CONFIG.VERCEL_API_URL || 'https://your-api-project.vercel.app';
 
 class Blog {
     constructor() {
         this.postsContainer = document.getElementById('posts-container');
-        this.posts = [];
         this.globalStats = {};
+        this.posts = [];
         this.init();
     }
 
     async init() {
-        // Show posts immediately with default views
-        this.globalStats = {};
-        POSTS_DATA.forEach(post => this.globalStats[post.id] = 0);
-        this.loadPosts();
+        await this.loadNotionPosts();
+        // await this.loadGlobalStatsAsync();
         this.renderPosts();
-        
-        // Load real view counts in background
-        this.loadGlobalStatsAsync();
+    }
+
+    async loadNotionPosts() {
+        try {
+            const response = await fetch(NOTION_API_URL);
+            const data = await response.json();
+            console.log(data)
+            this.posts = data
+                //.filter(post => post.Published) // Make sure your Notion database has this checkbox
+                .map(post => ({
+                    id: post.id,
+                    title: post.title,
+                    date: post.created,
+                    content: post.content || "(Content not loaded)",
+                    views: post.views || 0  // Get views from Notion
+                }))
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+        } catch (error) {
+            console.error('Failed to load Notion posts:', error);
+        }
     }
 
     async loadGlobalStatsAsync() {
-        // Check if we're running locally (file:// protocol)
-        if (window.location.protocol === 'file:') {
-            console.log('Running locally, skipping CountAPI');
-            return;
-        }
-        
-        // Load all view counts in parallel with timeout
-        const promises = POSTS_DATA.map(async (post) => {
+        const promises = this.posts.map(async (post) => {
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-                
+                const timeout = setTimeout(() => controller.abort(), 5000);
+
                 const response = await fetch(`https://api.countapi.xyz/get/lore-blog/${post.id}`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
-                
+
                 const data = await response.json();
                 return { id: post.id, count: data.value || 0 };
             } catch (error) {
@@ -79,11 +54,10 @@ class Blog {
                 return { id: post.id, count: 0 };
             }
         });
-        
+
         try {
             const results = await Promise.all(promises);
-            
-            // Update view counts and re-render
+
             results.forEach(result => {
                 this.globalStats[result.id] = result.count;
                 const post = this.posts.find(p => p.id === result.id);
@@ -98,46 +72,6 @@ class Blog {
             });
         } catch (error) {
             console.error('Failed to load view counts:', error);
-        }
-    }
-
-    loadPosts() {
-        this.posts = POSTS_DATA.map(post => ({
-            ...post,
-            views: this.getGlobalViews(post.id)
-        }));
-        
-        this.posts.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-
-    getGlobalViews(postId) {
-        return this.globalStats[postId] || 0;
-    }
-
-    async incrementViews(postId) {
-        // If running locally, just increment locally
-        if (window.location.protocol === 'file:') {
-            this.globalStats[postId] = (this.globalStats[postId] || 0) + 1;
-            return this.globalStats[postId];
-        }
-        
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-            
-            const response = await fetch(`https://api.countapi.xyz/hit/lore-blog/${postId}`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeout);
-            
-            const data = await response.json();
-            this.globalStats[postId] = data.value;
-            return data.value;
-        } catch (error) {
-            console.error('Failed to increment view count:', error);
-            // Fallback: increment locally if API fails
-            this.globalStats[postId] = (this.globalStats[postId] || 0) + 1;
-            return this.globalStats[postId];
         }
     }
 
@@ -178,13 +112,13 @@ class Blog {
     async togglePost(postId) {
         const contentDiv = document.getElementById(`content-${postId}`);
         const isHidden = contentDiv.classList.contains('hidden');
-        
+
         if (isHidden) {
             contentDiv.classList.remove('hidden');
-            
-            // Increment global view count
+
+            // Update views on open
             const newViews = await this.incrementViews(postId);
-            
+
             const post = this.posts.find(p => p.id === postId);
             if (post) {
                 post.views = newViews;
@@ -198,6 +132,31 @@ class Blog {
         }
     }
 
+    async incrementViews(postId) {
+        if (window.location.protocol === 'file:') {
+            this.globalStats[postId] = (this.globalStats[postId] || 0) + 1;
+            return this.globalStats[postId];
+        }
+
+        try {
+            const post = this.posts.find(p => p.id === postId);
+            const postTitle = post ? post.title : '';
+            
+            const response = await fetch(`${VERCEL_API_URL}/api/views?action=increment&postTitle=${encodeURIComponent(postTitle)}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                return data.views;
+            } else {
+                console.error('Failed to increment views:', data.error);
+                return post ? post.views : 0;
+            }
+        } catch (error) {
+            console.error('Failed to increment view count:', error);
+            const post = this.posts.find(p => p.id === postId);
+            return post ? post.views : 0;
+        }
+    }
 }
 
 const blog = new Blog();

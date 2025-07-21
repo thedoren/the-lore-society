@@ -1,0 +1,11 @@
+{
+  "name": "lore-blog",
+  "version": "1.0.0",
+  "description": "A minimal blog about the Lore game",
+  "dependencies": {
+    "@notionhq/client": "^2.2.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
