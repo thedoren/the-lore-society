@@ -7,6 +7,7 @@ class Blog {
         this.postsContainer = document.getElementById('posts-container');
         this.globalStats = {};
         this.posts = [];
+        this.viewedPosts = new Set(); // Track viewed posts in this session
         this.init();
     }
 
@@ -75,15 +76,18 @@ class Blog {
         if (isHidden) {
             contentDiv.classList.remove('hidden');
 
-            // Update views on open
-            const newViews = await this.incrementViews(postId);
-
-            const post = this.posts.find(p => p.id === postId);
-            if (post) {
-                post.views = newViews;
-                const viewsSpan = contentDiv.parentElement.querySelector('.text-xs span:last-child');
-                if (viewsSpan) {
-                    viewsSpan.textContent = `${newViews} views`;
+            // Only increment views if not already viewed in this session
+            if (!this.viewedPosts.has(postId)) {
+                const newViews = await this.incrementViews(postId);
+                this.viewedPosts.add(postId); // Mark as viewed
+                
+                const post = this.posts.find(p => p.id === postId);
+                if (post) {
+                    post.views = newViews;
+                    const viewsSpan = contentDiv.parentElement.querySelector('.text-xs span:last-child');
+                    if (viewsSpan) {
+                        viewsSpan.textContent = `${newViews} views`;
+                    }
                 }
             }
         } else {
