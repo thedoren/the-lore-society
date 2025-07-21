@@ -50,42 +50,43 @@ class Blog {
     }
 
     async loadGlobalStats() {
-        try {
-            const response = await fetch('stats.json');
-            this.globalStats = await response.json();
-        } catch (error) {
-            console.log('Could not load global stats, using defaults');
-            this.globalStats = {};
+        this.globalStats = {};
+        // Load each post's view count from CountAPI
+        for (const post of POSTS_DATA) {
+            try {
+                const response = await fetch(`https://api.countapi.xyz/get/lore-blog/${post.id}`);
+                const data = await response.json();
+                this.globalStats[post.id] = data.value || 0;
+            } catch (error) {
+                console.log(`Could not load stats for post ${post.id}`);
+                this.globalStats[post.id] = 0;
+            }
         }
     }
 
     loadPosts() {
         this.posts = POSTS_DATA.map(post => ({
             ...post,
-            views: this.getTotalViews(post.id)
+            views: this.getGlobalViews(post.id)
         }));
         
         this.posts.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-
-    getLocalViews(postId) {
-        const views = localStorage.getItem(`post-views-${postId}`) || 0;
-        return parseInt(views);
     }
 
     getGlobalViews(postId) {
         return this.globalStats[postId] || 0;
     }
 
-    getTotalViews(postId) {
-        return this.getGlobalViews(postId) + this.getLocalViews(postId);
-    }
-
-    incrementViews(postId) {
-        const currentLocalViews = this.getLocalViews(postId);
-        const newLocalViews = currentLocalViews + 1;
-        localStorage.setItem(`post-views-${postId}`, newLocalViews);
-        return this.getTotalViews(postId);
+    async incrementViews(postId) {
+        try {
+            const response = await fetch(`https://api.countapi.xyz/hit/lore-blog/${postId}`);
+            const data = await response.json();
+            this.globalStats[postId] = data.value;
+            return data.value;
+        } catch (error) {
+            console.error('Failed to increment view count:', error);
+            return this.getGlobalViews(postId);
+        }
     }
 
     formatDate(dateString) {
@@ -122,13 +123,15 @@ class Blog {
         `).join('');
     }
 
-    togglePost(postId) {
+    async togglePost(postId) {
         const contentDiv = document.getElementById(`content-${postId}`);
         const isHidden = contentDiv.classList.contains('hidden');
         
         if (isHidden) {
             contentDiv.classList.remove('hidden');
-            const newViews = this.incrementViews(postId);
+            
+            // Increment global view count
+            const newViews = await this.incrementViews(postId);
             
             const post = this.posts.find(p => p.id === postId);
             if (post) {
@@ -138,59 +141,11 @@ class Blog {
                     viewsSpan.textContent = `${newViews} views`;
                 }
             }
-            
-            // Store for potential submission to global stats
-            this.markForSubmission(postId);
         } else {
             contentDiv.classList.add('hidden');
         }
     }
 
-    markForSubmission(postId) {
-        const pendingStats = JSON.parse(localStorage.getItem('pending-stats') || '{}');
-        pendingStats[postId] = this.getLocalViews(postId);
-        localStorage.setItem('pending-stats', JSON.stringify(pendingStats));
-    }
-
-    // Method to get stats ready for submission via GitHub issue
-    getPendingStats() {
-        const pending = JSON.parse(localStorage.getItem('pending-stats') || '{}');
-        const hasData = Object.keys(pending).length > 0;
-        
-        if (hasData) {
-            const instructions = `To contribute your view data to global statistics:
-
-1. Copy the JSON below
-2. Create a new GitHub issue with title: [STATS] View Data Submission
-3. Paste the JSON as the issue body
-4. Submit the issue
-
-Your data:
-\`\`\`json
-${JSON.stringify(pending, null, 2)}
-\`\`\``;
-            
-            console.log(instructions);
-            return { pending, instructions };
-        }
-        return null;
-    }
 }
 
 const blog = new Blog();
-
-// Expose method for manual stats submission
-window.submitStats = () => {
-    const data = blog.getPendingStats();
-    if (data) {
-        const blob = new Blob([data.instructions], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'stats-submission-instructions.txt';
-        a.click();
-        URL.revokeObjectURL(url);
-    } else {
-        console.log('No pending stats to submit');
-    }
-};
